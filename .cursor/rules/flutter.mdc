@@ -1,5 +1,329 @@
 ---
 alwaysApply: true
 ---
+## 1) Core Principles
+
+1. **Clean, maintainable, testable** code.
+2. **Type & null safety** first; avoid `dynamic`.
+3. **Immutability** for data models (Freezed).
+4. **Separation of concerns**: UI ↔ state ↔ domain ↔ data.
+5. **Feature-first modularity** (scale by adding features, not folders at root).
+6. **Least power principle**: pick the simplest abstraction that works.
+7. **Docs-as-code**: keep README per feature; update when behavior changes.
+8. **Utility-first**: *before adding code, a dependency, a provider, or a route, verify it's necessary and valuable.*
+
+### 1.a Utility & Minimality Gate (apply before any change)
+- **Purpose:** What user story, bug, or metric does this solve? (link issue)
+- **Smallest change?** Prefer config/extension over new dependency; prefer extending existing provider over adding a new one.
+- **Blast radius:** Which features get impacted? Backward compatibility?
+- **Cost vs. benefit:** Lines added, binary size, build time, runtime memory. If cost > benefit → reject or defer.
+- **Owner & lifecycle:** Who maintains it? When can we delete it? (set a `// TODO(deprecate:<date>)` if temporary)
+- **Security & privacy:** Any additional data, permissions, or secrets?
+- **Testability:** Can we unit test it? Add tests in the same PR.
+
+**PR must include:** `Why`, `Minimal alternative considered`, `Rollback plan`, `Tests added`, and (if dependency) `Vetting checklist` (see §13).
+
+---
+
+## 2) Project Structure (feature‑first, clean-ish)
+
+> Prefer **feature-first** with a lean clean-architecture split *inside* each feature.
+
+```
+lib/
+  core/
+    config/            # env, flavors, constants
+    routing/           # routerProvider, route defs, guards
+    theme/             # design system, ThemeExtensions
+    utils/             # cross-cutting helpers (date, formatters, etc.)
+          
+  features/
+    auth/
+      domain/          # entities, repositories (abstract), usecases
+      data/            # DTOs, mappers, data sources (api/local), repo impl
+      application/     # riverpod providers/notifiers (business logic)
+      presentation/    # screens, widgets, controllers (pure UI)
+    profile/
+      ... (same 4 layers)
+    home/
+      ...
+    service/
+      ...  
+  app.dart             # root widget, ProviderScope, MaterialApp.router
+  
+```
+
+**Why this layout?**
+
+- Keeps **UI small & composable**.
+- Business rules live in **application/** (Riverpod notifiers) and **domain/** (pure Dart) — easy to test.
+- **data/** is the only layer touching I/O (Dio, local DB). Mappers isolate external schema changes.
+- You can split features into separate packages later (Melos) without rewrites.
+
+> **Optional monorepo** (for large apps):
+
+```
+packages/
+  design_system/   # shared UI components & tokens
+  api_client/      # generated clients, models (if OpenAPI)
+  analytics/       # analytics abstraction + impls
+```
+
+---
+
+## 3) Environments & Config
+
+- Use **flavors**: `dev`, `stg`, `prod` with separate entry points.
+- Pass secrets/config via `--dart-define` or a `dart-define-from-file` step. **Never** commit secrets.
+- Create `core/config/app_config.dart` and expose through a provider:
+
+```dart
+@riverpod
+AppConfig appConfig(AppConfigRef ref) => const AppConfig(
+  name: 'Dev', apiBaseUrl: String.fromEnvironment('API_BASE_URL'),
+);
+```
+
+---
+
+## 4) State Management — Riverpod Rules
+
+- Use **`@riverpod` code generation** over manual providers.
+- Use **`ref.watch()`** in build methods; **`ref.read()`** in callbacks/effects.
+- Use **`autoDispose`** for short‑lived/route‑scoped state; call `keepAlive()` sparingly and only with justification.
+- Prefer:
+  - `Notifier` / `AsyncNotifier` for business logic
+  - `FutureProvider` for simple async reads
+  - `StreamProvider` for real‑time
+  - `StateProvider` for trivial local state
+- Use **family providers** for parameterized state (`userProvider(id)`).
+- Avoid circular dependencies; isolate cross‑feature deps in **core/** providers.
+- **Dispose** streams/controllers in providers.
+
+**Example**
+
+```dartdart
+@riverpod
+class Counter extends _$Counter {
+  @override int build() => 0;
+  void increment() => state++;
+}
+```
+
+---
+
+## 5) Routing — GoRouter
+
+- Centralize router in `core/routing/router.dart` and expose with a provider.
+- Use **named routes**, typed helpers, and **route guards** (auth, onboarding).
+- **Nested navigation** via `ShellRoute` for persistent tabs.
+- Support **deep links**; handle unknown routes with `errorBuilder`.
+
+```dart
+final routerProvider = Provider<GoRouter>((ref) {
+  final auth = ref.watch(authStateProvider);
+  return GoRouter(
+    initialLocation: '/home',
+    redirect: (ctx, state) {
+      final needsAuth = state.matchedLocation.startsWith('/secure');
+      if (needsAuth && !auth.isAuthenticated) return '/login';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/home', name: 'home', builder: (_, __) => const HomeScreen()),
+      // ...
+    ],
+    errorBuilder: (_, st) => ErrorScreen(st.error),
+  );
+});
+```
+
+---
+
+## 6) Networking — Dio
+
+- Single **configured client** (base URL, headers, timeouts) exposed via provider.
+- Interceptors: auth token attach/refresh, logging (strip in prod), retry (exponential backoff).
+- Map transport errors → `AppException` early (data layer).
+
+```dart
+@riverpod
+Dio dio(DioRef ref) {
+  final base = ref.watch(appConfigProvider).apiBaseUrl;
+  final dio = Dio(BaseOptions(baseUrl: base, connectTimeout: const Duration(seconds: 10)));
+  dio.interceptors.addAll([AuthInterceptor(ref), LogInterceptor()]);
+  return dio;
+  
+}
+```
+
+---
+
+## 7) Data & Domain
+
+- **Domain**: pure Dart — `Entity` (Freezed), `Repository` (abstract), `UseCase` (if helpful).
+- **Data**: DTOs (Freezed+JSON), mappers, datasource (remote/local), repository **impl**.
+- Never return `Response` or raw JSON above `data/` — map to domain models.
+
+```dart
+// domain
+@freezed
+class User with _$User { const factory User({required String id, required String name, String? email}) = _User; }
+abstract interface class UserRepo { Future<User> getMe(); }
+
+// data
+@freezed
+class UserDto with _$UserDto { factory UserDto({required String id, required String name, String? email}) = _UserDto; factory UserDto.fromJson(Map<String, dynamic> json) => _$UserDtoFromJson(json); }
+
+extension UserMapper on UserDto { User toDomain() => User(id: id, name: name, email: email); }
+```
+
+---
+
+## 8) Error Handling
+
+- Use **`AsyncValue`** in UI; never throw through the widget tree.
+- Centralize **`AppException`** types (network, auth, validation, unknown) in `core/error/`.
+- Convert exceptions in data layer → domain/app exceptions; show **user‑friendly** messages in UI.
+
+```dartdart
+Widget build(BuildContext context, WidgetRef ref) {
+  final users = ref.watch(usersProvider);
+  return users.when(
+    data: (d) => ListView.builder(itemCount: d.length, itemBuilder: (_, i) => Text(d[i].name)),
+    loading: () => const Center(child: CircularProgressIndicator()),
+    error: (e, _) => ErrorView(message: toFriendly(e)),
+  );
+}
+```
+
+---
+
+## 9) UI, Theming & Design System
+
+- Build a **design system**: colors, typography, spacing, radii, icons.
+- Use **ThemeExtensions** for tokens; favor composition.
+- Break down large widgets; use `const` constructors.
+- Avoid logic in widgets — delegate to providers.
+- Responsive layouts: `LayoutBuilder`/`MediaQuery` and size breakpoints.
+- Accessibility: semantics, contrast, scalable text.
+
+---
+
+## 10) Performance
+
+- `const` widgets, memoize heavy calcs, `select()` to watch slices of state.
+- Use `ListView.builder`/`SliverList` for long lists; paginate/infinite scroll.
+- Cache images (CachedNetworkImage) and data (repository cache if needed).
+- Avoid rebuild storms (don't watch whole objects when a field is enough).
+
+---
+
+## 11) Security
+
+- No secrets in repo; store in CI or `--dart-define`.
+- Use `flutter_secure_storage` for tokens; wipe on logout.
+- Validate user input; sanitize before network.
+- Optional: **certificate pinning** with Dio if required.
+
+---
 
 
+
+
+## 14) Git & Reviews
+
+- **Conventional Commits** (`feat:`, `fix:`, `refactor:`, ...). Keep commits atomic.
+- **Feature branches** → PR → review checklist.
+- Pre-push hook: `format` + `analyze` + `test`.
+
+**PR checklist (minimum):**
+- [ ] Purpose linked to user story/issue
+- [ ] Passed **Utility & Minimality Gate** (Why, minimal alternative, cost/benefit)
+- [ ] Unit tests added/updated for providers/domain
+- [ ] UI states covered (loading/error/empty)
+- [ ] Strings extracted (i18n‑ready) & a11y labels added
+- [ ] No raw DTOs leak above data layer
+- [ ] Lints pass; CI green
+- [ ] Screenshots for UI changes
+- [ ] ADR added/updated if architecture/dependency changed
+
+---
+
+## 15) Naming & Conventions
+
+- **camelCase** for vars/functions; **PascalCase** for types.
+- Private members prefix `_`.
+- Suffix: `*Provider`, `*Screen`, DTOs as `*Dto`, entities as bare nouns.
+- Files: `snake_case.dart`. Feature files prefixed with feature if shared.
+
+---
+
+## 16) Localization & Copy
+
+- Plan for i18n early (`flutter_localizations`, `intl`).
+- Keep strings in ARB; no hardcoded user-facing text.
+
+---
+
+## 17) Example `pubspec.yaml` (key deps) : it's just an example. Don't replicate that if we don't need any library!!!!
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^
+  riverpod_annotation: ^
+  go_router: ^
+  freezed_annotation: ^
+  json_annotation: ^
+  dio: ^
+  shared_preferences: ^
+  flutter_secure_storage: ^
+  cached_network_image: ^
+  logger: ^
+
+dev_dependencies:
+  build_runner: ^
+  riverpod_generator: ^
+  freezed: ^
+  json_serializable: ^
+  flutter_test:
+    sdk: flutter
+  mocktail: ^
+  custom_lint: ^
+  riverpod_lint: ^
+```
+
+---
+
+## 18) Definition of Done (per feature)
+
+1. Providers + tests for business logic
+2. Screens cover **loading/error/empty/success** states
+3. Strings extracted; accessibility labels present
+4. Analytics events added (if applicable)
+5. Docs (README in feature) updated
+
+---
+
+
+
+---
+
+## 20) What NOT to do
+
+- Don't put network calls in widgets.
+- Don't expose DTOs above data layer.
+- Don't keep long‑lived state without reason; prefer `autoDispose`.
+- Don't add dependencies lightly; prefer native Dart/Flutter first.
+- Don't block UI thread with heavy sync work; offload/`compute` if necessary.
+
+---
+
+### TL;DR
+
+- **Feature-first** structure with **clean boundaries**.
+- **Riverpod + GoRouter + Freezed + Dio** as core.
+- Enforce quality with **lints, tests, CI**, and **PR checklist**.
+- Keep it **simple, typed, documented, and immutable**.
