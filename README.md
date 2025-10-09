@@ -1,4 +1,4 @@
-# Tray
+# Protly
 
 A Flutter project following clean architecture and feature-first principles.
 

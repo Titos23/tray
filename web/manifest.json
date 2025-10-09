@@ -1,6 +1,6 @@
 {
-    "name": "tray",
-    "short_name": "tray",
+    "name": "protly",
+    "short_name": "protly",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

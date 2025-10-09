@@ -158,7 +158,7 @@
       "languageVersion": "3.3"
     },
     {
-      "name": "tray",
+      "name": "protly",
       "rootUri": "../",
       "packageUri": "lib/",
       "languageVersion": "3.7"
