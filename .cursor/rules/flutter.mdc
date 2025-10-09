@@ -1,4 +1,5 @@
 ---
+description: his rule should be applied only when adding, modifying, or proposing new code, dependencies, or architectural elements. Before any change, the agent must evaluate if what it adds is truly necessary and useful — not just syntactically correct. If the addition doesn’t clearly improve scalability, readability, or maintainability, the agent must skip it.
 alwaysApply: false
 ---
 ## 1) Core Principles

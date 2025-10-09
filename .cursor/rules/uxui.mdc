@@ -1,0 +1,78 @@
+---
+description: Any task involving UI design, colors, theming, or visual components. Do not apply for backend logic or non-visual tasks.
+alwaysApply: false
+---
+# 🎨 UI/UX Palette Guideline
+
+## 🎭 Role
+**Emotion-first UI**  
+Encourages trust, vitality, and ritual usage. *Consistency > decoration.*
+
+---
+
+## 🌱 Primary
+**Name:** Vitality Green  
+**Hex:** `#4ADE80`  
+**Usage:** CTA buttons, Progress indicators, Positive highlights  
+**Psychology:** Health, growth, lightness  
+**Notes:** Avoid earthy greens. Must be bright, fresh, and technological.
+
+---
+
+## ⚪ Secondary
+**Name:** Pure White & Warm Grays  
+- Background: `#FFFFFF`  
+- Gray Light 1: `#F5F5F5`  
+- Gray Light 2: `#E8E8E8`  
+- Gray Dark Text: `#3A3A3A`  
+
+**Usage:** Background, Text zones, Breathing space between actions  
+**Psychology:** Clarity, calm, readability
+
+---
+
+## ⚫ Neutral
+**Name:** Soft Charcoal  
+- Hex: `#1E1E1E`  
+- Alternative: `#222831`  
+
+**Usage:** Contrast, Icons, Dark mode anchors  
+**Psychology:** Seriousness, balance
+
+---
+
+## 🟠 Emotional Accent
+**Name:** Warm Motivational Orange  
+**Hex:** `#FFB566`  
+**Usage:** Success animations, Badges, Micro UI spark  
+**Psychology:** Dopamine hint, warmth, human energy  
+**Constraint:** Use sparingly
+
+---
+
+## 🌙 Dark Mode
+- Background: `#0F1412`  
+- Text: `#E5E7E6`  
+- Accent: `#48C773`  
+- Mode: Inverted but not pure black  
+
+**Psychology:** Zen, night focus, same brand in calmer ambiance
+
+---
+
+## 📊 Summary Table
+
+| Element             | Hex      | Role                       |
+|---------------------|----------|----------------------------|
+| Primary Green       | #4ADE80  | Vitality, trust            |
+| Pure White          | #FFFFFF  | Clarity, breathing         |
+| Light Gray          | #F5F5F5  | Balance                    |
+| Soft Black          | #1E1E1E  | Readability, contrast      |
+| Warm Orange         | #FFB566  | Motivation, dopamine       |
+| Dark Accent Green   | #48C773  | Balanced dark mode version |
+
+---
+
+## ✨ Visual Impact
+- **Atmosphere:** Zen nutrition meets high-tech freshness  
+- **First impression:** Clear, lively, coherent, healthy
