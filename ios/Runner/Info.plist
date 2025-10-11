@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>We need camera access to scan your meals and calculate protein content.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>We'd like to send you gentle reminders to help you reach your daily protein goal.</string>
 </dict>
 </plist>
