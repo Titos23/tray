@@ -8,10 +8,12 @@ class GoalSummaryScreen extends StatefulWidget {
   const GoalSummaryScreen({
     super.key,
     required this.model,
+    this.onBack,
     required this.onContinue,
   });
 
   final OnboardingViewModel model;
+  final VoidCallback? onBack;
   final VoidCallback onContinue;
 
   @override
@@ -48,7 +50,7 @@ class _GoalSummaryScreenState extends State<GoalSummaryScreen>
   @override
   Widget build(BuildContext context) {
     final summary = widget.model.computeProteinGoal();
-    final approxPrefix = summary.approximate ? '≈ ' : '';
+    final approxPrefix = summary.approximate ? '~ ' : '';
     final mainValue =
         '$approxPrefix${summary.grams.toStringAsFixed(0)} g of protein per day';
 
@@ -63,7 +65,20 @@ class _GoalSummaryScreenState extends State<GoalSummaryScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 24),
+                  if (widget.onBack != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                          onPressed: widget.onBack,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   _StepProgress(progress: _controller.value),
                   const SizedBox(height: 40),
                   FadeTransition(
@@ -71,13 +86,12 @@ class _GoalSummaryScreenState extends State<GoalSummaryScreen>
                       CurveTween(curve: const Interval(0.2, 0.6)),
                     ),
                     child: Text(
-                      'Here’s your daily goal 🎯',
+                      'Here is your daily goal.',
                       textAlign: TextAlign.center,
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: AppColors.darkText,
-                                fontWeight: FontWeight.w600,
-                              ),
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: AppColors.darkText,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -108,10 +122,9 @@ class _GoalSummaryScreenState extends State<GoalSummaryScreen>
                           Text(
                             summary.subtitle!,
                             textAlign: TextAlign.center,
-                            style:
-                                Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.mutedText,
-                                    ),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.mutedText,
+                                ),
                           ),
                       ],
                     ),
@@ -130,8 +143,8 @@ class _GoalSummaryScreenState extends State<GoalSummaryScreen>
                       children: [
                         Text(
                           summary.fallback
-                              ? 'We’ll adjust once you add more details.'
-                              : 'You’re all set 💪 We’ll help you get there.',
+                              ? 'We will adjust once you add more details.'
+                              : 'You are all set. We will help you get there.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context)
                               .textTheme
@@ -179,23 +192,19 @@ class _StepProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Align(
-          alignment: Alignment.center,
-          child: Text(
-            'Step 2 of 2',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.mutedText,
-                ),
-          ),
+        Text(
+          'Step 2 of 2',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.mutedText,
+              ),
         ),
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
-            value: (progress.clamp(0.0, 1.0)),
+            value: progress.clamp(0.0, 1.0),
             minHeight: 4,
-            backgroundColor:
-                AppColors.lightBorder.withValues(alpha: 0.4),
+            backgroundColor: AppColors.lightBorder.withValues(alpha: 0.4),
             valueColor:
                 const AlwaysStoppedAnimation<Color>(AppColors.vitalityGreen),
           ),
@@ -289,3 +298,4 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
     );
   }
 }
+

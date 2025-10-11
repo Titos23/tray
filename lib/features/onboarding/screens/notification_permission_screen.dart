@@ -11,11 +11,13 @@ class NotificationPermissionScreen extends StatefulWidget {
   const NotificationPermissionScreen({
     super.key,
     required this.model,
+    this.onBack,
     required this.onPermissionRequest,
     required this.onContinue,
   });
 
   final OnboardingViewModel model;
+  final VoidCallback? onBack;
   final Future<PermissionStatus> Function() onPermissionRequest;
   final VoidCallback onContinue;
 
@@ -31,7 +33,8 @@ class _NotificationPermissionScreenState
   late final AnimationController _confettiController;
   ReminderIntensity? _selection;
   bool _isRequesting = false;
-  bool _showToast = false;
+  bool _toastVisible = false;
+  String _toastMessage = '';
   Timer? _toastTimer;
 
   @override
@@ -70,59 +73,53 @@ class _NotificationPermissionScreenState
   Future<void> _requestPermission() async {
     if (_selection == null || _isRequesting) return;
     setState(() => _isRequesting = true);
-    HapticFeedback.lightImpact();
-    _confettiController.forward(from: 0);
-
     widget.model.updateReminder(_selection!);
+    HapticFeedback.lightImpact();
 
     final status = await widget.onPermissionRequest();
     widget.model.updateNotificationPermission(status);
 
     if (!mounted) return;
+
     switch (status) {
       case PermissionStatus.granted:
-        _confettiController.addStatusListener((listener) {
-          if (listener == AnimationStatus.completed && mounted) {
-            widget.onContinue();
-          }
+        _confettiController.forward(from: 0).whenComplete(() {
+          if (mounted) widget.onContinue();
         });
         break;
       case PermissionStatus.denied:
+        _presentToast('No worries - you can enable notifications later.');
+        Timer(const Duration(milliseconds: 1200), () {
+          if (mounted) widget.onContinue();
+        });
+        break;
       case PermissionStatus.unknown:
-        _showTemporaryToast(
-          'No worries — you can enable notifications later.',
-        );
-        Timer(const Duration(milliseconds: 1600), () {
-          if (!mounted) return;
-          widget.onContinue();
+        _presentToast('We\'ll remind you again soon.');
+        Timer(const Duration(milliseconds: 1200), () {
+          if (mounted) widget.onContinue();
         });
         break;
       case PermissionStatus.restricted:
-        _showTemporaryToast(
-          'Notifications are blocked. Enable them in Settings.',
-        );
-        Timer(const Duration(milliseconds: 1600), () {
-          if (!mounted) return;
-          widget.onContinue();
+        _presentToast('Notifications are blocked. Enable them in Settings.');
+        Timer(const Duration(milliseconds: 1400), () {
+          if (mounted) widget.onContinue();
         });
         break;
     }
     setState(() => _isRequesting = false);
   }
 
-  void _showTemporaryToast(String message) {
+  void _presentToast(String message) {
     _toastTimer?.cancel();
     setState(() {
-      _showToast = true;
       _toastMessage = message;
+      _toastVisible = true;
     });
-    _toastTimer = Timer(const Duration(milliseconds: 1600), () {
+    _toastTimer = Timer(const Duration(milliseconds: 1500), () {
       if (!mounted) return;
-      setState(() => _showToast = false);
+      setState(() => _toastVisible = false);
     });
   }
-
-  String _toastMessage = '';
 
   @override
   Widget build(BuildContext context) {
@@ -137,11 +134,23 @@ class _NotificationPermissionScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 32),
+                  if (widget.onBack != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                          onPressed: widget.onBack,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 24),
                   _PulsingBell(controller: _iconController),
                   const SizedBox(height: 32),
                   Text(
-                    'Gentle reminders to complete your bar ✨',
+                    'Gentle reminders to complete your bar.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: AppColors.darkText,
@@ -170,7 +179,7 @@ class _NotificationPermissionScreenState
                   _EnableButton(
                     enabled: canContinue && !_isRequesting,
                     onTap: _requestPermission,
-                    label: 'Enable my reminders',
+                    label: _isRequesting ? 'Requesting...' : 'Enable my reminders',
                   ),
                   const SizedBox(height: 32),
                 ],
@@ -190,7 +199,7 @@ class _NotificationPermissionScreenState
               ),
             ),
           ),
-          if (_showToast)
+          if (_toastVisible)
             Positioned(
               bottom: 80,
               left: 24,
@@ -257,17 +266,29 @@ class _ReminderCards extends StatelessWidget {
   final ReminderIntensity? selection;
   final ValueChanged<ReminderIntensity> onSelect;
 
+  static const _entries = <_ReminderEntry>[
+    _ReminderEntry(
+      intensity: ReminderIntensity.light,
+      title: 'Light',
+      description: 'One reminder per day',
+    ),
+    _ReminderEntry(
+      intensity: ReminderIntensity.standard,
+      title: 'Standard',
+      description: 'Three reminders per day',
+    ),
+    _ReminderEntry(
+      intensity: ReminderIntensity.silent,
+      title: 'Silent',
+      description: 'Reminders without sound',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final entries = [
-      (ReminderIntensity.light, 'Light', 'One reminder per day', '🌤️'),
-      (ReminderIntensity.standard, 'Standard', 'Three reminders per day', '🗓️'),
-      (ReminderIntensity.silent, 'Silent', 'Reminders without sound', '🔕'),
-    ];
-
     return Column(
       children: [
-        for (var i = 0; i < entries.length; i++)
+        for (var i = 0; i < _entries.length; i++)
           FadeTransition(
             opacity: controller.drive(
               CurveTween(
@@ -277,32 +298,30 @@ class _ReminderCards extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: GestureDetector(
-                onTap: () => onSelect(entries[i].$1),
+                onTap: () => onSelect(_entries[i].intensity),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                   decoration: BoxDecoration(
-                    color: selection == entries[i].$1
+                    color: selection == _entries[i].intensity
                         ? const Color(0xFFE6F9ED)
                         : Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(
-                      color: selection == entries[i].$1
+                      color: selection == _entries[i].intensity
                           ? AppColors.vitalityGreen
                           : AppColors.lightBorder,
                     ),
                   ),
                   child: Row(
                     children: [
-                      Text(entries[i].$4, style: const TextStyle(fontSize: 24)),
-                      const SizedBox(width: 16),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              entries[i].$2,
+                              _entries[i].title,
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
@@ -313,7 +332,7 @@ class _ReminderCards extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              entries[i].$3,
+                              _entries[i].description,
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
@@ -326,7 +345,7 @@ class _ReminderCards extends StatelessWidget {
                       ),
                       AnimatedOpacity(
                         duration: const Duration(milliseconds: 180),
-                        opacity: selection == entries[i].$1 ? 1 : 0,
+                        opacity: selection == _entries[i].intensity ? 1 : 0,
                         child: const Icon(
                           Icons.check_circle,
                           color: AppColors.vitalityGreen,
@@ -341,6 +360,18 @@ class _ReminderCards extends StatelessWidget {
       ],
     );
   }
+}
+
+class _ReminderEntry {
+  const _ReminderEntry({
+    required this.intensity,
+    required this.title,
+    required this.description,
+  });
+
+  final ReminderIntensity intensity;
+  final String title;
+  final String description;
 }
 
 class _EnableButton extends StatefulWidget {
@@ -425,16 +456,15 @@ class _ConfettiPainter extends CustomPainter {
     if (t == 0) return;
     final center = size.center(const Offset(0, -120));
     for (final piece in _pieces) {
-      final easedInput =
-          (t + piece.offsetSeed).clamp(0.0, 1.0);
+      final easedInput = (t + piece.offsetSeed).clamp(0.0, 1.0);
       final progress = Curves.easeOut.transform(easedInput);
       final dx = piece.baseOffset.dx * (0.5 + progress);
       final dy = piece.baseOffset.dy * (0.5 + progress) + progress * 140;
       final position = center.translate(dx, dy);
       final rotation = piece.angle + progress * math.pi;
       final paint = Paint()
-        ..color = piece.color
-            .withValues(alpha: (1 - easedInput).clamp(0.0, 1.0))
+        ..color =
+            piece.color.withValues(alpha: (1 - easedInput).clamp(0.0, 1.0))
         ..style = PaintingStyle.fill;
       canvas.save();
       canvas.translate(position.dx, position.dy);
@@ -467,3 +497,7 @@ class _ConfettiPiece {
   final Color color;
   final double offsetSeed;
 }
+
+
+
+

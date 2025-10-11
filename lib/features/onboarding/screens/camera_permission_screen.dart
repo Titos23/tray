@@ -11,12 +11,14 @@ class CameraPermissionScreen extends StatefulWidget {
   const CameraPermissionScreen({
     super.key,
     required this.model,
+    this.onBack,
     required this.onPermissionRequest,
     required this.onContinue,
     required this.onOpenSettings,
   });
 
   final OnboardingViewModel model;
+  final VoidCallback? onBack;
   final Future<PermissionStatus> Function() onPermissionRequest;
   final VoidCallback onContinue;
   final VoidCallback onOpenSettings;
@@ -76,7 +78,7 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
       case PermissionStatus.granted:
         HapticFeedback.mediumImpact();
         setState(() {
-          _successMessage = 'Parfait ! Réglons ton objectif.';
+          _successMessage = 'Parfait ! Reglons ton objectif.';
         });
         _successTimer = Timer(const Duration(milliseconds: 500), () {
           if (!mounted) return;
@@ -114,11 +116,23 @@ class _CameraPermissionScreenState extends State<CameraPermissionScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 32),
+                  if (widget.onBack != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                          onPressed: widget.onBack,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 24),
                   _PulsingCameraIcon(controller: _iconController),
                   const SizedBox(height: 32),
                   Text(
-                    'We need your camera to scan your meals 📷',
+                    'We need your camera to scan your meals.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: AppColors.darkText,
@@ -481,3 +495,4 @@ class _DialogButton extends StatelessWidget {
     );
   }
 }
+

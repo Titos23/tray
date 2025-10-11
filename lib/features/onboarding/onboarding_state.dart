@@ -41,7 +41,6 @@ class OnboardingViewModel extends ChangeNotifier {
   PermissionStatus cameraPermission = PermissionStatus.unknown;
   PermissionStatus notificationPermission = PermissionStatus.unknown;
 
-  bool heightKnown = true;
   bool isOffline = false;
 
   WeightUnit weightUnit = WeightUnit.kg;
@@ -86,20 +85,14 @@ class OnboardingViewModel extends ChangeNotifier {
 
   void toggleWeightUnit(WeightUnit nextUnit) {
     if (weightUnit == nextUnit) return;
+    final display = weightDisplay;
     weightUnit = nextUnit;
-    notifyListeners();
+    updateWeight(display, unit: nextUnit);
   }
 
   void updateHeight(double value) {
     if ((heightCm - value).abs() < 0.5) return;
     heightCm = value;
-    heightKnown = true;
-    notifyListeners();
-  }
-
-  void markUnknownHeight() {
-    heightKnown = false;
-    heightCm = 170;
     notifyListeners();
   }
 
@@ -127,16 +120,6 @@ class OnboardingViewModel extends ChangeNotifier {
       );
     }
 
-    if (!heightKnown) {
-      return const ProteinGoalSummary(
-        grams: 120,
-        approximate: true,
-        fallback: false,
-        highTarget: false,
-        subtitle: 'You can adjust this later in your profile.',
-      );
-    }
-
     final baseFactor = switch (goal!) {
       GoalType.maintain => 1.5,
       GoalType.gainMuscle => 2.0,
@@ -155,11 +138,10 @@ class OnboardingViewModel extends ChangeNotifier {
       Sex.female => 0.95,
     };
 
-    var grams =
-        _weightKg * baseFactor * activityMultiplier * sexAdjustment;
+    var grams = _weightKg * baseFactor * activityMultiplier * sexAdjustment;
     grams = math.max(0, grams);
-    final rounded = (grams).clamp(40, 240);
-    final roundedInt = (rounded).roundToDouble();
+    final rounded = grams.clamp(40, 240);
+    final roundedInt = rounded.roundToDouble();
 
     final isHigh = roundedInt > 180;
 
@@ -168,9 +150,64 @@ class OnboardingViewModel extends ChangeNotifier {
       approximate: false,
       fallback: false,
       highTarget: isHigh,
-      subtitle: '≈ 1 g per lb of body weight.',
-      note: isHigh ? 'That\'s a strong goal — you can tweak it anytime.' : null,
+      subtitle: 'About 1 g per lb of body weight.',
+      note: isHigh ? 'That\'s a strong goal; you can tweak it anytime.' : null,
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return <String, dynamic>{
+      'sex': sex?.name,
+      'goal': goal?.name,
+      'activity': activity?.name,
+      'reminder': reminder?.name,
+      'cameraPermission': cameraPermission.name,
+      'notificationPermission': notificationPermission.name,
+      'weightUnit': weightUnit.name,
+      'weightKg': _weightKg,
+      'heightCm': heightCm,
+      'isOffline': isOffline,
+    };
+  }
+
+  void restoreFromMap(Map<String, dynamic> map) {
+    sex = _enumFromName(Sex.values, map['sex'] as String?);
+    goal = _enumFromName(GoalType.values, map['goal'] as String?);
+    activity = _enumFromName(ActivityLevel.values, map['activity'] as String?);
+    reminder =
+        _enumFromName(ReminderIntensity.values, map['reminder'] as String?);
+    cameraPermission = _enumFromName(
+          PermissionStatus.values,
+          map['cameraPermission'] as String?,
+        ) ??
+        PermissionStatus.unknown;
+    notificationPermission = _enumFromName(
+          PermissionStatus.values,
+          map['notificationPermission'] as String?,
+        ) ??
+        PermissionStatus.unknown;
+    weightUnit = _enumFromName(WeightUnit.values, map['weightUnit'] as String?) ??
+        WeightUnit.kg;
+    final storedWeight = (map['weightKg'] as num?)?.toDouble();
+    if (storedWeight != null && storedWeight > 0) {
+      _weightKg = storedWeight;
+    }
+    final storedHeight = (map['heightCm'] as num?)?.toDouble();
+    if (storedHeight != null && storedHeight > 0) {
+      heightCm = storedHeight;
+    }
+    isOffline = map['isOffline'] as bool? ?? false;
+    notifyListeners();
+  }
+
+  T? _enumFromName<T>(List<T> values, String? name) {
+    if (name == null) return null;
+    for (final value in values) {
+      if (value is Enum && value.name == name) {
+        return value;
+      }
+    }
+    return null;
   }
 
   static double _kgToLb(double kg) => kg * 2.20462;

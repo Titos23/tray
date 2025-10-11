@@ -11,11 +11,13 @@ class PrivacyConsentScreen extends StatefulWidget {
   const PrivacyConsentScreen({
     super.key,
     required this.model,
+    this.onBack,
     required this.onOpenSettings,
     required this.onFinish,
   });
 
   final OnboardingViewModel model;
+  final VoidCallback? onBack;
   final VoidCallback onOpenSettings;
   final VoidCallback onFinish;
 
@@ -72,18 +74,18 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen>
         widget.model.notificationPermission == PermissionStatus.denied;
 
     final title = cameraDenied
-        ? 'We’ll need your camera later.'
+        ? 'We will need your camera later.'
         : 'You stay in control.';
 
     final bullets = cameraDenied
         ? const [
             'Protly works best when you can scan your meals.',
-            'You can allow camera access anytime in Settings.'
+            'You can allow camera access anytime in Settings.',
           ]
         : const [
             'You can edit or correct any scan.',
             'You can delete your data anytime.',
-            'We never display calories — only proteins.',
+            'We never display calories, only proteins.',
           ];
 
     return Scaffold(
@@ -98,10 +100,24 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 16),
-                    if (widget.model.isOffline)
+                    if (widget.onBack != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                            onPressed: widget.onBack,
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 16),
+                    if (widget.model.isOffline) ...[
+                      const SizedBox(height: 12),
                       _OfflineBanner(controller: _entryController),
-                    const SizedBox(height: 32),
+                    ] else
+                      const SizedBox(height: 32),
                     _PulsingIcon(controller: _iconController),
                     const SizedBox(height: 32),
                     FadeTransition(
@@ -155,10 +171,8 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen>
                       ),
                     _PrimaryButton(
                       label: cameraDenied ? 'Continue without camera' : 'Continue',
-                      disabled: widget.model.isOffline,
-                      onPressed: cameraDenied
-                          ? _finish
-                          : _finish,
+                      onPressed: _finish,
+                      enabled: !widget.model.isOffline,
                     ),
                     if (cameraDenied)
                       TextButton(
@@ -191,9 +205,9 @@ class _PulsingIcon extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final value = math.sin(controller.value * 2 * math.pi) * 0.05 + 1.0;
+        final scale = math.sin(controller.value * 2 * math.pi) * 0.05 + 1.0;
         return Transform.scale(
-          scale: value,
+          scale: scale,
           child: Icon(
             Icons.verified_user_outlined,
             size: 48,
@@ -232,7 +246,6 @@ class _BulletColumn extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(width: 6),
                   const Icon(
                     Icons.check_circle,
                     color: AppColors.vitalityGreen,
@@ -259,13 +272,13 @@ class _BulletColumn extends StatelessWidget {
 class _PrimaryButton extends StatefulWidget {
   const _PrimaryButton({
     required this.label,
-    required this.disabled,
     required this.onPressed,
+    required this.enabled,
   });
 
   final String label;
-  final bool disabled;
   final VoidCallback onPressed;
+  final bool enabled;
 
   @override
   State<_PrimaryButton> createState() => _PrimaryButtonState();
@@ -276,24 +289,23 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = !widget.disabled;
     return GestureDetector(
-      onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-      onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
-      onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
-      onTap: enabled ? widget.onPressed : null,
+      onTapDown: widget.enabled ? (_) => setState(() => _pressed = true) : null,
+      onTapCancel: widget.enabled ? () => setState(() => _pressed = false) : null,
+      onTapUp: widget.enabled ? (_) => setState(() => _pressed = false) : null,
+      onTap: widget.enabled ? widget.onPressed : null,
       child: AnimatedScale(
         duration: const Duration(milliseconds: 120),
-        scale: enabled && _pressed ? 0.97 : 1,
+        scale: widget.enabled && _pressed ? 0.97 : 1.0,
         child: Opacity(
-          opacity: enabled ? 1 : 0.4,
+          opacity: widget.enabled ? 1 : 0.4,
           child: Container(
             height: 58,
             decoration: BoxDecoration(
               color: AppColors.vitalityGreen,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
-                if (enabled)
+                if (widget.enabled)
                   BoxShadow(
                     color: AppColors.vitalityGreen.withValues(alpha: 0.2),
                     blurRadius: 16,
@@ -398,10 +410,10 @@ class _InfoSheetState extends State<_InfoSheet>
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        '• Encrypted scans stored on-device first.\n'
-                        '• You can trigger deletion at any time from Settings.\n'
-                        '• We never sell or share personal data.\n'
-                        '• Only protein insights are displayed to limit pressure.',
+                        '- Encrypted scans stored on-device first.\n'
+                        '- You can trigger deletion at any time from Settings.\n'
+                        '- We never sell or share personal data.\n'
+                        '- Only protein insights are displayed to limit pressure.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: AppColors.neutralText,
                               height: 1.4,
@@ -452,7 +464,7 @@ class _OfflineBanner extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'You’re offline. Some features may be limited.',
+                'You are offline. Some features may be limited.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFF7A5C00),
                     ),
@@ -464,3 +476,5 @@ class _OfflineBanner extends StatelessWidget {
     );
   }
 }
+
+

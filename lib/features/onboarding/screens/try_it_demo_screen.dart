@@ -9,9 +9,11 @@ import '../../../core/theme/app_colors.dart';
 class TryItDemoScreen extends StatefulWidget {
   const TryItDemoScreen({
     super.key,
+    this.onBack,
     required this.onContinue,
   });
 
+  final VoidCallback? onBack;
   final VoidCallback onContinue;
 
   @override
@@ -26,6 +28,7 @@ class _TryItDemoScreenState extends State<TryItDemoScreen>
   Timer? _ctaTimer;
   bool _ctaVisible = false;
   bool _feedbackVisible = false;
+  bool _hasInteracted = false;
 
   @override
   void initState() {
@@ -43,21 +46,17 @@ class _TryItDemoScreenState extends State<TryItDemoScreen>
     _interactionController = AnimationController(
       duration: const Duration(milliseconds: 1600),
       vsync: this,
-    );
-    _interactionController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        setState(() {
-          _feedbackVisible = true;
-          _ctaVisible = true;
-        });
-      }
-    });
+    )..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() {
+            _feedbackVisible = true;
+          });
+        }
+      });
 
     _ctaTimer = Timer(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      setState(() {
-        _ctaVisible = true;
-      });
+      if (!mounted || _hasInteracted) return;
+      setState(() => _ctaVisible = true);
     });
   }
 
@@ -74,6 +73,8 @@ class _TryItDemoScreenState extends State<TryItDemoScreen>
     HapticFeedback.selectionClick();
     setState(() {
       _feedbackVisible = false;
+      _hasInteracted = true;
+      _ctaVisible = true;
     });
     _interactionController.forward(from: 0);
   }
@@ -89,13 +90,26 @@ class _TryItDemoScreenState extends State<TryItDemoScreen>
         child: SafeArea(
           child: Column(
             children: [
-              SizedBox(height: media.size.height * 0.08),
+              if (widget.onBack != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 4),
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                      onPressed: widget.onBack,
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(height: 16),
+              SizedBox(height: media.size.height * 0.04),
               FadeTransition(
                 opacity: _entryController.drive(
                   CurveTween(curve: const Interval(0.3, 1, curve: Curves.easeIn)),
                 ),
                 child: Text(
-                  'Essaie 📷',
+                  'Essaie',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppColors.neutralText,
@@ -119,7 +133,7 @@ class _TryItDemoScreenState extends State<TryItDemoScreen>
                 duration: const Duration(milliseconds: 300),
                 opacity: _feedbackVisible ? 1 : 0,
                 child: Text(
-                  'Simple, non ? 😉',
+                  'Simple, non ?',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w500,
                         color: AppColors.neutralText,
@@ -134,7 +148,9 @@ class _TryItDemoScreenState extends State<TryItDemoScreen>
                 ),
                 child: _ContinueButton(
                   visible: _ctaVisible,
+                  enabled: _hasInteracted,
                   onPressed: () {
+                    if (!_hasInteracted) return;
                     HapticFeedback.lightImpact();
                     widget.onContinue();
                   },
@@ -183,8 +199,8 @@ class _InteractivePlate extends StatelessWidget {
                     height: 200 + halo * 20,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppColors.vitalityGreen
-                          .withValues(alpha: 0.12 * halo),
+                      color:
+                          AppColors.vitalityGreen.withValues(alpha: 0.12 * halo),
                     ),
                   ),
                   Container(
@@ -201,9 +217,9 @@ class _InteractivePlate extends StatelessWidget {
                     child: Container(
                       width: 90,
                       height: 90,
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: const RadialGradient(
+                        gradient: RadialGradient(
                           colors: [
                             Color(0xFFEFF5FF),
                             Color(0xFFE6F9ED),
@@ -232,11 +248,10 @@ class _InteractivePlate extends StatelessWidget {
                         offset: Offset(0, (1 - grams) * 16),
                         child: Text(
                           '+28 g',
-                          style:
-                              Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.vitalityGreen,
-                                  ),
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.vitalityGreen,
+                              ),
                         ),
                       ),
                     ),
@@ -248,8 +263,7 @@ class _InteractivePlate extends StatelessWidget {
                       width: 120,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: AppColors.lightBorder
-                            .withValues(alpha: 0.35),
+                        color: AppColors.lightBorder.withValues(alpha: 0.35),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: FractionallySizedBox(
@@ -285,10 +299,12 @@ class _InteractivePlate extends StatelessWidget {
 class _ContinueButton extends StatefulWidget {
   const _ContinueButton({
     required this.visible,
+    required this.enabled,
     required this.onPressed,
   });
 
   final bool visible;
+  final bool enabled;
   final VoidCallback onPressed;
 
   @override
@@ -308,31 +324,34 @@ class _ContinueButtonState extends State<_ContinueButton> {
         duration: const Duration(milliseconds: 320),
         opacity: widget.visible ? 1 : 0,
         child: GestureDetector(
-          onTapDown: (_) => setState(() => _pressed = true),
-          onTapCancel: () => setState(() => _pressed = false),
-          onTapUp: (_) => setState(() => _pressed = false),
-          onTap: widget.onPressed,
+          onTapDown: widget.enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapCancel: widget.enabled ? () => setState(() => _pressed = false) : null,
+          onTapUp: widget.enabled ? (_) => setState(() => _pressed = false) : null,
+          onTap: widget.enabled ? widget.onPressed : null,
           child: AnimatedScale(
             duration: const Duration(milliseconds: 120),
-            scale: _pressed ? 0.97 : 1,
+            scale: widget.enabled && _pressed ? 0.97 : 1,
             child: Container(
               height: 58,
               decoration: BoxDecoration(
-                color: AppColors.vitalityGreen,
+                color: widget.enabled
+                    ? AppColors.vitalityGreen
+                    : AppColors.lightBorder.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
-                  BoxShadow(
-                    color: AppColors.vitalityGreen.withValues(alpha: 0.22),
-                    blurRadius: 14,
-                    offset: const Offset(0, 10),
-                  ),
+                  if (widget.enabled)
+                    BoxShadow(
+                      color: AppColors.vitalityGreen.withValues(alpha: 0.22),
+                      blurRadius: 14,
+                      offset: const Offset(0, 10),
+                    ),
                 ],
               ),
               child: Center(
                 child: Text(
-                  'Activer la caméra',
+                  'Activer la camera',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
+                        color: widget.enabled ? Colors.white : AppColors.mutedText,
                         fontWeight: FontWeight.w600,
                       ),
                 ),
@@ -344,3 +363,5 @@ class _ContinueButtonState extends State<_ContinueButton> {
     );
   }
 }
+
+

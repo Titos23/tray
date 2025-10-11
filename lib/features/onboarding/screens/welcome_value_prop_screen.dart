@@ -28,8 +28,10 @@ class _WelcomeValuePropScreenState extends State<WelcomeValuePropScreen>
   bool _ctaVisible = false;
   bool _secondaryVisible = false;
   bool _sheetVisible = false;
+  bool _headlineVisible = false;
   Timer? _ctaTimer;
   Timer? _secondaryTimer;
+  Timer? _headlineTimer;
 
   @override
   void initState() {
@@ -59,12 +61,18 @@ class _WelcomeValuePropScreenState extends State<WelcomeValuePropScreen>
       if (!mounted) return;
       setState(() => _secondaryVisible = true);
     });
+
+    _headlineTimer = Timer(const Duration(milliseconds: 650), () {
+      if (!mounted) return;
+      setState(() => _headlineVisible = true);
+    });
   }
 
   @override
   void dispose() {
     _ctaTimer?.cancel();
     _secondaryTimer?.cancel();
+    _headlineTimer?.cancel();
     _logoController.dispose();
     _demoController.dispose();
     super.dispose();
@@ -89,18 +97,46 @@ class _WelcomeValuePropScreenState extends State<WelcomeValuePropScreen>
                   ),
                   child: _AnimatedLogo(controller: _logoController),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 400),
+                  opacity: _headlineVisible ? 1 : 0,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: size.width * 0.08,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16, bottom: 12),
+                      child: Text(
+                        'One photo gets you your proteins, no hassle.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.neutralText,
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
                 Expanded(
                   child: Align(
-                    alignment: Alignment.center,
+                    alignment: Alignment.topCenter,
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: size.width * 0.08,
                       ),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
-                        child: _DemoLoop(
-                          controller: _demoController,
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            top: size.height * 0.02,
+                          ),
+                          child: _DemoLoop(
+                            controller: _demoController,
+                          ),
                         ),
                       ),
                     ),
@@ -142,7 +178,7 @@ class _WelcomeValuePropScreenState extends State<WelcomeValuePropScreen>
                                   fontWeight: FontWeight.w500,
                                 ),
                             children: const [
-                              TextSpan(text: 'As-tu déjà un compte ? '),
+                              TextSpan(text: 'As-tu deja un compte ? '),
                               TextSpan(
                                 text: 'Se connecter',
                                 style: TextStyle(
@@ -201,7 +237,7 @@ class _AnimatedLogo extends StatelessWidget {
         position: slide,
         child: Image.asset(
           'Logoprotly.png',
-          width: MediaQuery.of(context).size.width * 0.15,
+          width: MediaQuery.of(context).size.width * 0.12,
           fit: BoxFit.contain,
         ),
       ),
@@ -376,7 +412,7 @@ class _SignInSheetState extends State<_SignInSheet>
                 ),
                 const Spacer(),
                 Text(
-                  'En continuant, tu acceptes les Conditions générales et la Politique de confidentialité.',
+                  'En continuant, tu acceptes les Conditions generales et la Politique de confidentialite.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.mutedText,
@@ -719,3 +755,4 @@ extension on double {
     return math.max(0.0, math.min(1.0, (this - min) / (max - min)));
   }
 }
+

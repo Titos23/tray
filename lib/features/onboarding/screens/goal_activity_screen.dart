@@ -8,10 +8,12 @@ class GoalActivityScreen extends StatefulWidget {
   const GoalActivityScreen({
     super.key,
     required this.model,
+    this.onBack,
     required this.onContinue,
   });
 
   final OnboardingViewModel model;
+  final VoidCallback? onBack;
   final VoidCallback onContinue;
 
   @override
@@ -34,9 +36,21 @@ class _GoalActivityScreenState extends State<GoalActivityScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 32),
+                  if (widget.onBack != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+                          onPressed: widget.onBack,
+                        ),
+                      ),
+                    )
+                  else
+                    const SizedBox(height: 24),
                   Text(
-                    'Tell me your goal 💪',
+                    'Tell me your goal',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: AppColors.darkText,
@@ -44,11 +58,11 @@ class _GoalActivityScreenState extends State<GoalActivityScreen> {
                         ),
                   ),
                   const SizedBox(height: 28),
-                  _SectionTitle('What’s your main goal?'),
+                  const _SectionTitle('What is your main goal?'),
                   const SizedBox(height: 16),
                   _GoalCards(model: widget.model),
                   const SizedBox(height: 28),
-                  _SectionTitle('How active are you?'),
+                  const _SectionTitle('How active are you?'),
                   const SizedBox(height: 12),
                   _ActivityChips(model: widget.model),
                   const Spacer(),
@@ -95,46 +109,42 @@ class _GoalCards extends StatelessWidget {
 
   final OnboardingViewModel model;
 
+  static const _entries = <_GoalEntry>[
+    _GoalEntry(
+      type: GoalType.maintain,
+      title: 'Maintain',
+      description: 'Keep your current shape.',
+    ),
+    _GoalEntry(
+      type: GoalType.gainMuscle,
+      title: 'Gain muscle',
+      description: 'Build lean mass.',
+    ),
+    _GoalEntry(
+      type: GoalType.loseFat,
+      title: 'Lose fat',
+      description: 'Tone and slim down.',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final entries = [
-      (
-        GoalType.maintain,
-        'Maintain',
-        'Keep your current shape.',
-        '🧘'
-      ),
-      (
-        GoalType.gainMuscle,
-        'Gain muscle',
-        'Build lean mass.',
-        '🏋️'
-      ),
-      (
-        GoalType.loseFat,
-        'Lose fat',
-        'Tone and slim down.',
-        '🎯'
-      ),
-    ];
-
     return Column(
-      children: entries.map((entry) {
-        final selected = model.goal == entry.$1;
+      children: _entries.map((entry) {
+        final selected = model.goal == entry.type;
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
-              model.updateGoal(entry.$1);
+              model.updateGoal(entry.type);
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 220),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
               decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.vitalityGreen.withValues(alpha: 0.12)
-                    : Colors.white,
+                color:
+                    selected ? AppColors.vitalityGreen.withValues(alpha: 0.12) : Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: selected ? AppColors.vitalityGreen : AppColors.lightBorder,
@@ -143,8 +153,7 @@ class _GoalCards extends StatelessWidget {
                 boxShadow: selected
                     ? [
                         BoxShadow(
-                          color:
-                              AppColors.vitalityGreen.withValues(alpha: 0.18),
+                          color: AppColors.vitalityGreen.withValues(alpha: 0.18),
                           blurRadius: 16,
                           offset: const Offset(0, 10),
                         ),
@@ -153,17 +162,12 @@ class _GoalCards extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Text(
-                    entry.$4,
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                  const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          entry.$2,
+                          entry.title,
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.neutralText,
@@ -171,7 +175,7 @@ class _GoalCards extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          entry.$3,
+                          entry.description,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: AppColors.mutedText,
                               ),
@@ -179,9 +183,9 @@ class _GoalCards extends StatelessWidget {
                       ],
                     ),
                   ),
-                  AnimatedScale(
-                    scale: selected ? 1.0 : 0.0,
+                  AnimatedOpacity(
                     duration: const Duration(milliseconds: 180),
+                    opacity: selected ? 1 : 0,
                     child: const Icon(
                       Icons.check_circle,
                       color: AppColors.vitalityGreen,
@@ -202,24 +206,36 @@ class _ActivityChips extends StatelessWidget {
 
   final OnboardingViewModel model;
 
+  static const _entries = <_ActivityEntry>[
+    _ActivityEntry(
+      level: ActivityLevel.sedentary,
+      label: 'Sedentary',
+    ),
+    _ActivityEntry(
+      level: ActivityLevel.active,
+      label: 'Active',
+    ),
+    _ActivityEntry(
+      level: ActivityLevel.regular,
+      label: 'Regular',
+    ),
+    _ActivityEntry(
+      level: ActivityLevel.intense,
+      label: 'Intense',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final entries = [
-      (ActivityLevel.sedentary, 'Sedentary', '🪑'),
-      (ActivityLevel.active, 'Active', '🚶'),
-      (ActivityLevel.regular, 'Regular', '🏃'),
-      (ActivityLevel.intense, 'Intense', '🔥'),
-    ];
-
     return Wrap(
       spacing: 12,
       alignment: WrapAlignment.center,
-      children: entries.map((entry) {
-        final selected = model.activity == entry.$1;
+      children: _entries.map((entry) {
+        final selected = model.activity == entry.level;
         return GestureDetector(
           onTap: () {
             HapticFeedback.selectionClick();
-            model.updateActivity(entry.$1);
+            model.updateActivity(entry.level);
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -232,7 +248,7 @@ class _ActivityChips extends StatelessWidget {
               ),
             ),
             child: Text(
-              '${entry.$3} ${entry.$2}',
+              entry.label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: selected ? Colors.white : AppColors.neutralText,
                     fontWeight: FontWeight.w600,
@@ -303,4 +319,26 @@ class _PrimaryButtonState extends State<_PrimaryButton> {
       ),
     );
   }
+}
+
+class _GoalEntry {
+  const _GoalEntry({
+    required this.type,
+    required this.title,
+    required this.description,
+  });
+
+  final GoalType type;
+  final String title;
+  final String description;
+}
+
+class _ActivityEntry {
+  const _ActivityEntry({
+    required this.level,
+    required this.label,
+  });
+
+  final ActivityLevel level;
+  final String label;
 }
